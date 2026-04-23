@@ -10,3 +10,6 @@ Researchers often simplify by working in the developed domain.
 ### Pecularities
 - Prepare as a patch for dcraw. Alternatively, use rawpy Python package.
 - Use ALASKA raws
+
+
+Based on the work of P. Bas. Steganography via cover-source switching. IEEE WIFS, 2016.
