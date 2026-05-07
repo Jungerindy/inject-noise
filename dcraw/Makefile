@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -O4
 LIBS = -lm -DNODEPS
 
-TARGET = dcraw
+TARGET = build/dcraw
 SRC = dcraw.c
 
 

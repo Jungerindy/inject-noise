@@ -142,6 +142,27 @@ void (*write_thumb)(), (*write_fun)();
 void (*load_raw)(), (*thumb_load_raw)();
 jmp_buf failure;
 
+/* INJECT-NOISE patch: global variables
+ */
+int stego_inject = 0;
+double st_a_base = 0.0;
+double st_b_base = 0.0;
+double st_a_target = 0.0;
+double st_b_target = 0.0;
+
+// Box-Muller transform: Generates normal distributed random variables; u=0 and std=1
+double stego_rand_normal() {
+    double u1 = (double)rand() / RAND_MAX;
+    double u2 = (double)rand() / RAND_MAX;
+    
+    if (u1 <= 0.0) {
+        u1 = 1e-9; 
+    }
+    
+    return sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
+}
+// END of patch
+
 struct decode {
   struct decode *branch[2];
   int leaf;
@@ -4275,6 +4296,24 @@ skip_block: ;
       val -= cblack[6 + i/4 / iwidth % cblack[4] * cblack[5] +
 			i/4 % iwidth % cblack[5]];
     val -= cblack[i & 3];
+    
+    //STEGO PATCH STEP 3: Inject  noise into u
+    if (stego_inject && val > 0) {
+        double mu_norm = (double)val / (double)maximum;
+        double var_delta_norm = (st_a_target * mu_norm + st_b_target) - 
+                                (st_a_base * mu_norm + st_b_base);
+                                
+        if (var_delta_norm > 0) {
+            double noise = sqrt(var_delta_norm) * (double)maximum * stego_rand_normal();
+            double new_val = (double)val + noise;
+            
+            if (new_val < 0) new_val = 0;
+            if (new_val > maximum) new_val = maximum;
+            
+            val = (int)new_val;
+        }
+    }
+    //END inject patch 
     val *= scale_mul[i & 3];
     ((ushort *)image)[i] = CLIP(val);
   }
@@ -10152,8 +10191,8 @@ int CLASS main (int argc, const char **argv)
   argv[argc] = "";
   for (arg=1; (((opm = argv[arg][0]) - 2) | 2) == '+'; ) {
     opt = argv[arg++][1];
-    if ((cp = (char *) strchr (sp="nbrkStqmHACg", opt)))
-      for (i=0; i < "114111111422"[cp-sp]-'0'; i++)
+    if ((cp = (char *) strchr (sp="nbrkStqmHACgY", opt)))
+      for (i=0; i < "1141111114224"[cp-sp]-'0'; i++)
 	if (!isdigit(argv[arg+i][0])) {
 	  fprintf (stderr,_("Non-numeric argument to \"-%c\"\n"), opt);
 	  return 1;
@@ -10210,6 +10249,17 @@ int CLASS main (int argc, const char **argv)
       case '4':  gamm[0] = gamm[1] =
 		 no_auto_bright    = 1;
       case '6':  output_bps       = 16;  break;
+      /* ======================================================== */
+      case 'Y':  
+        stego_inject = 1;
+        st_a_base = atof(argv[arg++]);
+        st_b_base = atof(argv[arg++]);
+        st_a_target = atof(argv[arg++]);
+        st_b_target = atof(argv[arg++]);
+        //printf("Here in stego option Y with b_targetr: %d\n", st_b_target);
+        srand(93);
+        break;
+      /* ======================================================== */
       default:
 	fprintf (stderr,_("Unknown option \"-%c\".\n"), opt);
 	return 1;
